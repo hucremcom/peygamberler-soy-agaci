@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#7a1330">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Şecere-i Peygamberî — İnteraktif Soy Ağacı</title>
+<style>
+  :root{
+    --maroon:#7a1330; --maroon-dark:#4a0b1d; --gold:#c9a15a; --cream:#f6efe0;
+    --card:#ffffff; --card-border:#d8c9a8; --line:#8a8578; --text:#2a2420;
+    --muted:#6b645a; --prophet-bg:#7a1330; --prophet-text:#fff;
+    --ring:#c9a15a; --bg:#efe6d0; --panel:#fffaf0; --shadow:rgba(0,0,0,.25);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#1c1712; --panel:#241d16; --card:#2b2219; --card-border:#4a3d2c;
+      --text:#eee3cf; --muted:#b8ac95; --line:#8a7a5c; --cream:#2b2219; }
+  }
+  :root[data-theme="dark"]{ --bg:#1c1712; --panel:#241d16; --card:#2b2219; --card-border:#4a3d2c;
+      --text:#eee3cf; --muted:#b8ac95; --line:#8a7a5c; --cream:#2b2219; }
+  :root[data-theme="light"]{ --bg:#efe6d0; --panel:#fffaf0; --card:#ffffff; --card-border:#d8c9a8;
+      --text:#2a2420; --muted:#6b645a; --line:#8a8578; --cream:#f6efe0; }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    overflow:hidden; overscroll-behavior:none;}
+
+  header{
+    position:relative; z-index:20;
+    background:linear-gradient(135deg,var(--maroon-dark),var(--maroon) 55%,#8f1c3c);
+    color:#fdf3df; padding:10px 14px; display:flex; align-items:center; gap:10px;
+    box-shadow:0 2px 10px var(--shadow); flex-wrap:wrap;
+  }
+  header h1{font-size:15px; margin:0; font-weight:700; letter-spacing:.3px; white-space:nowrap;}
+  header h1 small{display:block; font-weight:400; font-size:10px; opacity:.8;}
+  .spacer{flex:1;}
+  .toolbar{display:flex; gap:6px; align-items:center; flex-wrap:wrap;}
+  .searchbox{position:relative;}
+  .searchbox input{
+    background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.35); color:#fff;
+    border-radius:20px; padding:7px 12px 7px 30px; font-size:13px; width:150px; outline:none;
+    transition:width .2s;
+  }
+  .searchbox input::placeholder{color:rgba(255,255,255,.65);}
+  .searchbox input:focus{width:210px; background:rgba(255,255,255,.2);}
+  .searchbox svg{position:absolute; left:9px; top:50%; transform:translateY(-50%); width:14px; height:14px; opacity:.75; pointer-events:none;}
+  #searchResults{
+    position:absolute; top:36px; left:0; width:260px; max-height:280px; overflow:auto;
+    background:var(--panel); color:var(--text); border:1px solid var(--card-border); border-radius:10px;
+    box-shadow:0 8px 24px var(--shadow); display:none; z-index:50;
+  }
+  #searchResults div{padding:8px 12px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--card-border);}
+  #searchResults div:last-child{border-bottom:none;}
+  #searchResults div:hover{background:var(--maroon); color:#fff;}
+  #searchResults .none{color:var(--muted); cursor:default;}
+  #searchResults .none:hover{background:none; color:var(--muted);}
+
+  button.btn{
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35); color:#fff;
+    border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:5px;
+    white-space:nowrap;
+  }
+  button.btn:hover{background:rgba(255,255,255,.28);}
+  button.btn.active{background:var(--gold); color:#3a2b0e; border-color:var(--gold); font-weight:700;}
+  .iconbtn{width:30px; height:30px; padding:0; justify-content:center; font-size:15px; font-weight:700;}
+
+  #stage{position:absolute; top:0; left:0; right:0; bottom:0; overflow:hidden; touch-action:none; cursor:grab;
+    user-select:none; -webkit-user-select:none; -moz-user-select:none;}
+  #stage *{ -webkit-user-drag:none; user-drag:none; }
+  #stage.grabbing{cursor:grabbing;}
+  #canvas{position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform; padding:60px 80px 140px 80px;}
+
+  ul.tree, ul.tree ul{
+    list-style:none; margin:0; padding:0; display:flex; padding-top:34px; position:relative;
+  }
+  ul.tree.root{padding-top:0;}
+  ul.tree li{
+    position:relative; display:flex; flex-direction:column; align-items:center;
+    padding:34px 14px 0 14px; text-align:center;
+  }
+  ul.tree.root > li{padding-top:0;}
+  /* connector lines are drawn with a real SVG overlay (#linesSvg) computed from
+     actual rendered box positions — see drawConnectors() — rather than CSS
+     pseudo-element math, which proved fragile across nested flex widths. */
+  #linesSvg{position:absolute; top:0; left:0; overflow:visible; pointer-events:none;}
+  #linesSvg path.connector{stroke:var(--line); stroke-width:2.4px; fill:none;}
+  #linesSvg path.connector.dashed{stroke:var(--gold); stroke-width:2.4px; stroke-dasharray:7 6;}
+
+  .nodewrap{position:relative; display:inline-flex; flex-direction:column; align-items:center;}
+  .node{
+    background:var(--card); border:2px solid var(--card-border); border-radius:10px;
+    padding:7px 12px; min-width:96px; cursor:pointer; box-shadow:0 2px 6px var(--shadow);
+    transition:transform .12s, box-shadow .12s, border-color .12s;
+    position:relative; user-select:none;
+  }
+  .node:hover{transform:translateY(-2px); box-shadow:0 6px 14px var(--shadow); border-color:var(--gold);}
+  .node.prophet{background:var(--prophet-bg); color:var(--prophet-text); border-color:#efc873;}
+  .node.rasul{background:linear-gradient(135deg,#8a1a1a,#c9a15a); border-color:#ffe9b0;}
+  .node .name{font-size:13px; font-weight:700; line-height:1.25;}
+  .node .title{font-size:10px; opacity:.85; font-weight:400; margin-top:1px;}
+  .node.highlight{outline:3px solid #2fb8a6; outline-offset:2px; animation:pulse 1.4s ease-in-out 2;}
+  @keyframes pulse{0%,100%{outline-color:#2fb8a6;}50%{outline-color:#ffd25a;}}
+
+  .toggle{
+    position:absolute; bottom:-10px; left:50%; transform:translateX(-50%);
+    width:20px; height:20px; border-radius:50%; background:var(--gold); color:#3a2b0e;
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+    border:2px solid var(--panel); cursor:pointer; z-index:5; box-shadow:0 2px 4px var(--shadow);
+  }
+  .childcount{
+    position:absolute; top:-8px; right:-8px; background:var(--maroon); color:#fff; font-size:9px;
+    border-radius:8px; padding:1px 5px; font-weight:700; display:none;
+  }
+  li.collapsed > ul{display:none;}
+  li.collapsed > .nodewrap .childcount{display:inline-block;}
+
+  /* legend */
+  #legend{
+    position:absolute; left:12px; bottom:12px; z-index:15; background:var(--panel);
+    border:1px solid var(--card-border); border-radius:10px; padding:10px 14px; font-size:11.5px;
+    box-shadow:0 4px 16px var(--shadow); max-width:230px; color:var(--text);
+  }
+  #legend h4{margin:0 0 6px 0; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted);}
+  #legend .row{display:flex; align-items:center; gap:7px; margin-bottom:5px;}
+  #legend .swatch{width:16px; height:16px; border-radius:4px; flex:none; border:2px solid var(--card-border);}
+  #legend .line{width:20px; height:0; border-top:2px solid var(--line); flex:none;}
+  #legend .line.dashed{border-top:2px dashed var(--gold);}
+  #legend button{margin-top:4px; font-size:10.5px; background:none; border:none; color:var(--muted); cursor:pointer; text-decoration:underline; padding:0;}
+
+  /* zoom controls */
+  #zoomctl{position:absolute; right:12px; bottom:12px; z-index:15; display:flex; flex-direction:column; gap:6px;}
+  #zoomctl button{
+    width:36px; height:36px; border-radius:50%; border:1px solid var(--card-border); background:var(--panel);
+    color:var(--text); font-size:18px; font-weight:700; cursor:pointer; box-shadow:0 3px 10px var(--shadow);
+  }
+  #zoomctl button:active{transform:scale(.94);}
+
+  /* modal */
+  #overlay{position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100; display:none; align-items:center; justify-content:center; padding:20px;}
+  #modal{
+    background:var(--panel); color:var(--text); max-width:420px; width:100%; border-radius:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5); overflow:hidden; border:1px solid var(--card-border);
+    max-height:85vh; display:flex; flex-direction:column;
+  }
+  #modalHead{background:linear-gradient(135deg,var(--maroon-dark),var(--maroon)); color:#fdf3df; padding:16px 18px; position:relative;}
+  #modalHead .name{font-size:19px; font-weight:800;}
+  #modalHead .title{font-size:12px; opacity:.85; margin-top:2px;}
+  #modalClose{position:absolute; top:10px; right:12px; background:rgba(255,255,255,.15); border:none; color:#fff;
+    width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:14px;}
+  #modalBody{padding:16px 18px; overflow:auto; font-size:14px; line-height:1.55;}
+  #modalBody .badge{display:inline-block; font-size:10.5px; background:var(--gold); color:#3a2b0e; padding:2px 8px; border-radius:10px; font-weight:700; margin-bottom:8px;}
+  #modalBody .lineage{font-size:11.5px; color:var(--muted); margin-top:12px; padding-top:10px; border-top:1px dashed var(--card-border);}
+
+  #hint{
+    position:absolute; top:56px; left:50%; transform:translateX(-50%); z-index:14;
+    background:var(--panel); border:1px solid var(--card-border); color:var(--muted); font-size:11.5px;
+    padding:6px 12px; border-radius:20px; box-shadow:0 4px 12px var(--shadow); opacity:.95;
+    pointer-events:none; transition:opacity .4s;
+  }
+  select#langSel{background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35); color:#fff; border-radius:8px; padding:5px 6px; font-size:12px;}
+  select#langSel option{color:#000;}
+
+  @media (max-width:640px){
+    header h1{font-size:12.5px;}
+    .searchbox input{width:110px;}
+    .searchbox input:focus{width:150px;}
+    #legend{max-width:160px; font-size:10px; padding:8px 10px;}
+    #hint{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="mainTitle">Şecere-i Muhammedî <small id="subTitle">Peygamberler Soy Ağacı — İnteraktif</small></h1>
+  <div class="spacer"></div>
+  <div class="toolbar">
+    <div class="searchbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="searchInput" type="text" placeholder="İsim ara…">
+      <div id="searchResults"></div>
+    </div>
+    <button class="btn" id="expandAllBtn">⊕ <span>Tümünü Aç</span></button>
+    <button class="btn" id="collapseAllBtn">⊖ <span>Tümünü Kapat</span></button>
+    <select id="langSel">
+      <option value="tr">TR</option>
+      <option value="en">EN</option>
+    </select>
+    <button class="btn iconbtn" id="themeBtn" title="Tema">◐</button>
+  </div>
+</header>
+
+<div id="stage">
+  <div id="canvas"></div>
+</div>
+
+<div id="hint">🖱️ Sürükle • Tekerlek: yakınlaştır • Kutuya tıkla: detay • ⊕/⊖: dalları aç/kapat</div>
+
+<div id="legend">
+  <h4 id="legendTitle">Gösterge</h4>
+  <div class="row"><span class="swatch" style="background:var(--prophet-bg)"></span><span id="lg1">Peygamber (Kur'an'da adı geçen)</span></div>
+  <div class="row"><span class="swatch" style="background:var(--card)"></span><span id="lg2">Ata / Aile üyesi</span></div>
+  <div class="row"><span class="line"></span><span id="lg3">Doğrudan soy</span></div>
+  <div class="row"><span class="line dashed"></span><span id="lg4">Nesil atlama / dolaylı bağ</span></div>
+  <button id="legendHide">Gizle</button>
+</div>
+
+<div id="zoomctl">
+  <button id="zoomIn">+</button>
+  <button id="zoomReset" style="font-size:11px;" title="Tümünü sığdır">⟳</button>
+  <button id="zoomOut">−</button>
+</div>
+
+<div id="overlay">
+  <div id="modal">
+    <div id="modalHead">
+      <button id="modalClose">✕</button>
+      <div class="name" id="modalName"></div>
+      <div class="title" id="modalTitleTxt"></div>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DATA MODEL — JSON tabanlı soy ağacı (Peygamberler Şeceresi)
+   Kaynak: "Family Tree of the Prophets" (EN) + "Şecere-i Muhammedî,
+   Peygamberler Soyu" (TR) posterlerinin sentezi.
+   Her düğüm: { id, tr:{name,title,note}, en:{name,title,note},
+                prophet:bool, rasul:bool, dashed:bool, children:[...] }
+   dashed:true  → üst düğüme "nesil atlama / dolaylı" bağ ile bağlanır
+   ============================================================ */
+
+function n(id, tr, en, opts, children){
+  opts = opts || {};
+  return {
+    id: id,
+    tr: {name: tr[0]||'', title: tr[1]||'', note: tr[2]||''},
+    en: {name: en[0]||'', title: en[1]||'', note: en[2]||''},
+    prophet: !!opts.prophet,
+    rasul: !!opts.rasul,
+    dashed: !!opts.dashed,
+    children: children || []
+  };
+}
+
+const DATA =
+n('adem', ['Âdem','Aleyhisselâm','İlk insan ve ilk peygamber. Kur\'an\'a göre Allah tarafından yaratılan ilk insan olup, tüm insanlığın ve peygamberler zincirinin başlangıcıdır.'],
+          ['Adam','Peace be upon him','The first human being and the first prophet in Islamic tradition; the origin point of the entire chain of prophets.'],
+          {prophet:true, rasul:true}, [
+
+  n('sit', ['Şit','Aleyhisselâm','Âdem\'in oğlu. Peygamberlik hattı onunla devam etti; kendisine küçük sahifeler indirildiğine inanılır.'],
+           ['Seth','Peace be upon him','Son of Adam through whom the prophetic line continued; tradition holds that small scrolls were revealed to him.'],
+           {prophet:true}, [
+    n('enus', ['Enûş','',''], ['Enosh','',''], {}, [
+      n('kinan', ['Kinan','',''], ['Kenan','',''], {}, [
+        n('mehlail', ['Mehlâil','',''], ['Mahalalel','',''], {}, [
+          n('yard', ['Yard','',''], ['Jared','',''], {}, [
+            n('idris', ['İdris','Aleyhisselâm','Kur\'an\'da adı geçen peygamberlerden. Rivayete göre yazıyı, terziliği ve astronomiyi ilk öğretenlerdendir; kendisine sahifeler indirilmiştir.'],
+                       ['Idris (Enoch)','Peace be upon him','A prophet mentioned in the Qur\'an; tradition credits him with teaching writing, tailoring and astronomy. Scrolls were revealed to him.'],
+                       {prophet:true}, [
+              n('mettuselah', ['Mettûşelah','',''], ['Methuselah','',''], {}, [
+                n('lamek', ['Lâmek','',''], ['Lamech','',''], {}, [
+
+                  n('nuh', ['Nuh','Aleyhisselâm','Kur\'an\'da en çok bahsedilen peygamberlerden biri, "Ülü\'l-azm" beş büyük peygamberden. Kavmini 950 yıl tevhide davet etti; büyük tufan onun döneminde gerçekleşti ve gemisiyle inananlar kurtuldu.'],
+                       ['Noah','Peace be upon him','One of the most-mentioned prophets in the Qur\'an and one of the five "Ulu\'l-Azm" (greatest-resolve) prophets. He called his people to monotheism for 950 years; the Great Flood occurred in his time and his ark saved the believers.'],
+                       {prophet:true, rasul:true}, [
+
+                    n('sam', ['Sâm','','Nuh\'un oğlu. Gelenekte Arapların, Farslıların ve İbranilerin atası kabul edilir.'],
+                             ['Shem','','Son of Noah; traditionally regarded as the ancestor of the Arabs, Persians and Hebrews.'], {}, [
+
+                      n('erfahsed', ['Erfahşed','',''], ['Arpachshad','',''], {}, [
+                        n('salikh', ['Şalih (ata)','',''], ['Shelah','',''], {}, [
+                          n('abir', ['Âbir','',''], ['Eber','',''], {}, [
+                            n('falig', ['Fâlığ','',''], ['Peleg','',''], {}, [
+                              n('rau', ["Râ'û",'',''], ['Reu','',''], {}, [
+                                n('saru', ["Sârû'",'',''], ['Serug','',''], {}, [
+                                  n('nahur', ['Nâhur','',''], ['Nahor','',''], {}, [
+                                    n('azer', ['Âzer (Târuh)','','İbrahim\'in babası olarak bilinir; Kur\'an\'da Âzer olarak geçer.'],
+                                              ['Azar (Terah)','','Known as the father of Abraham; named Azar in the Qur\'an.'], {}, [
+
+                                      n('ibrahim', ['İbrahim','Aleyhisselâm — "Halîlullah"','"Ülü\'l-azm" peygamberlerden, Kâbe\'yi oğlu İsmail ile yeniden inşa etti. Müslüman, Yahudi ve Hristiyan geleneklerinin ortak atası kabul edilir. Eşleri Hacer ve Sâre\'den iki büyük peygamber soyu türedi: İsmail ve İshak.'],
+                                                    ['Abraham','Peace be upon him — "Khalilullah" (Friend of God)','One of the five Ulu\'l-Azm prophets; rebuilt the Kaaba together with his son Ishmael. Regarded as the common patriarch of the Muslim, Jewish and Christian traditions. His wives Hagar and Sarah gave rise to two great prophetic lines: Ishmael and Isaac.'],
+                                                    {prophet:true, rasul:true}, [
+
+                                        /* ---- İSMAİL HATTI → MUHAMMED (S.A.V.) ---- */
+                                        n('ismail', ['İsmail','Aleyhisselâm — İbrahim\'in ilk oğlu (Hacer)','Babası İbrahim ile birlikte Kâbe\'yi inşa etti. Kur\'an\'da sabrı ve teslimiyetiyle övülür. 12 oğlundan gelen soy, Arapların "Adnanî" kolunu ve nihayetinde Hz. Muhammed\'i (s.a.v.) doğurur.'],
+                                                    ['Ishmael','Peace be upon him — Abraham\'s firstborn (through Hagar)','Helped his father Abraham rebuild the Kaaba. Praised in the Qur\'an for his patience and submission. His twelve sons became ancestors of the "Adnani" Arabs, the line that eventually leads to the Prophet Muhammad ﷺ.'],
+                                                    {prophet:true}, [
+                                          n('ismail12', ['12 Oğlu','Nâbit, Kaydar, Ezbel, Mebşa, Mişma, Dûme, Mâşi, Hadar, Tayma, Yatur, Nebiş, Kayzuma','En büyük oğlu Nâbit ve kardeşi Kaydar\'ın soyundan, nesiller sonra Adnan gelir.'],
+                                                     ['12 Sons','Nabit, Kedar, Adbeel, Mibsam, Mishma, Dumah, Massa, Hadar, Tema, Jetur, Naphish, Kedemah','From the line of his eldest son Nabit and brother Kedar, many generations later, comes Adnan.'],
+                                                     {}, [
+                                            n('adnan', ['Adnan','','Kuzey Arapları\'nın (Adnânîler) atası. Hz. Muhammed\'in soyu kesin olarak buraya kadar doğrulanır; öncesi rivayete dayanır.'],
+                                                       ['Adnan','','Ancestor of the North Arabian ("Adnani") tribes. The Prophet Muhammad\'s genealogy is considered historically verified back to this point; earlier links rest on tradition.'], {}, [
+                                              n('mead', ["Ma'ad",'',''], ["Ma'ad",'',''], {}, [
+                                                n('nizar', ['Nizar','',''], ['Nizar','',''], {}, [
+                                                  n('mudar', ['Mudar','',''], ['Mudar','',''], {}, [
+                                                    n('ilyasata', ['İlyas (ata)','','Peygamber İlyas ile karıştırılmamalıdır — aynı isimli bir soy atasıdır.'],
+                                                                  ['Ilyas (ancestor)','','Not to be confused with the Prophet Elijah — a namesake ancestor.'], {}, [
+                                                      n('mudrike', ['Müdrike','',''], ['Mudrikah','',''], {}, [
+                                                        n('huzeyme', ['Huzeyme','',''], ['Khuzaymah','',''], {}, [
+                                                          n('kinane', ['Kinâne','',''], ['Kinanah','',''], {}, [
+                                                            n('nadr', ['Nadr','','Bazı rivayetlerde "Kureyş" lakabı buradan başlar.'],
+                                                                      ['Al-Nadr','','In some accounts the "Quraysh" designation begins here.'], {}, [
+                                                              n('malik', ['Mâlik','',''], ['Malik','',''], {}, [
+                                                                n('fihr', ['Fihr','Kureyş','Kureyş kabilesinin atası olarak kabul edilir.'],
+                                                                          ['Fihr','Quraysh','Regarded as the eponymous ancestor of the Quraysh tribe.'], {}, [
+                                                                  n('galib', ['Ğâlib','',''], ['Ghalib','',''], {}, [
+                                                                    n('luey', ['Lüey','',''], ['Lu\'ayy','',''], {}, [
+                                                                      n('kab', ["Ka'b",'',''], ["Ka'b",'',''], {}, [
+                                                                        n('murre', ['Mürre','',''], ['Murrah','',''], {}, [
+                                                                          n('kilab', ['Kilâb','',''], ['Kilab','',''], {}, [
+                                                                            n('kusay', ['Kusay','','Mekke\'de Kâbe\'nin hizmetlerini (sikaye, rifade) birleştirerek Kureyş\'in liderliğini pekiştirdi.'],
+                                                                                       ['Qusayy','','Consolidated leadership of the Quraysh in Mecca by uniting the offices of guardianship over the Kaaba.'], {}, [
+                                                                              n('abdumenaf', ['Abdümenaf','',''], ["Abd Manaf",'',''], {}, [
+                                                                                n('hasim', ['Hâşim','','Beni Hâşim (Hâşimoğulları) soyunun kurucusu; Kureyş\'in ileri gelenlerindendi.'],
+                                                                                          ['Hashim','','Founder of the Banu Hashim clan; a leading figure of the Quraysh.'], {}, [
+                                                                                  n('abdulmuttalib', ['Abdülmuttalib','','Hz. Muhammed\'in dedesi; onu küçük yaşta himayesine aldı.'],
+                                                                                                       ['Abd al-Muttalib','','Grandfather of the Prophet Muhammad; raised him after his father\'s death.'], {}, [
+                                                                                    n('abdullah', ['Abdullah','','Hz. Muhammed\'in babası; Muhammed doğmadan önce vefat etti.'],
+                                                                                                   ['Abdullah','','Father of the Prophet Muhammad; died before Muhammad was born.'], {}, [
+
+                                                                                      n('muhammed', ['Muhammed','Sallallahu Aleyhi ve Sellem','Son peygamber, İslam\'ın tebliğcisi. Kendisine Kur\'an-ı Kerim indirilmiştir. Peygamberler zincirinin mührü (Hâtemü\'n-Nebiyyîn) kabul edilir.'],
+                                                                                                     ['Muhammad','Peace be upon him','The final prophet and messenger of Islam, to whom the Qur\'an was revealed. Regarded as the "Seal of the Prophets" (Khatam an-Nabiyyin).'],
+                                                                                                     {prophet:true, rasul:true}, [
+                                                                                        n('cocuklar', ['Çocukları','Kâsım, Abdullah (Tayyib), Zeyneb, Ümmü Gülsüm, Rukiye, Fâtıma',''],
+                                                                                                       ['Children','Qasim, Abdullah (al-Tayyib), Zaynab, Umm Kulthum, Ruqayyah, Fatimah',''], {}, [
+                                                                                          n('fatima', ['Fâtıma','','Hz. Ali ile evlendi.'], ['Fatimah','','Married Ali ibn Abi Talib.'], {}, [
+                                                                                            n('hasan', ['Hasan','','Hz. Ali ve Fâtıma\'nın oğlu.'], ['Hasan','','Son of Ali and Fatimah.'], {}),
+                                                                                            n('huseyin', ['Hüseyin','','Hz. Ali ve Fâtıma\'nın oğlu.'], ['Husayn','','Son of Ali and Fatimah.'], {})
+                                                                                          ])
+                                                                                        ])
+                                                                                      ])
+                                                                                    ])
+                                                                                  ])
+                                                                                ])
+                                                                              ])
+                                                                            ])
+                                                                          ])
+                                                                        ])
+                                                                      ])
+                                                                    ])
+                                                                  ])
+                                                                ])
+                                                              ])
+                                                            ])
+                                                          ])
+                                                        ])
+                                                      ])
+                                                    ])
+                                                  ])
+                                                ])
+                                              ])
+                                            ])
+                                          ])
+                                        ]),
+
+                                        /* ---- İSHAK HATTI ---- */
+                                        n('ishak', ['İshak','Aleyhisselâm — İbrahim\'in ikinci oğlu (Sâre)','Yaşlılığında İbrahim\'e müjdelenen oğlu. Soyundan İsrailoğulları peygamberlerinin tamamı gelir.'],
+                                                    ['Isaac','Peace be upon him — Abraham\'s second son (through Sarah)','The son promised to Abraham in his old age. Nearly all the prophets of the Children of Israel descend from his line.'],
+                                                    {prophet:true}, [
+                                          n('yakup', ['Yâkup','Aleyhisselâm — İsrail','"İsrail" lakabıyla da anılır; 12 oğlundan "İsrailoğulları" (Beni İsrail) meydana geldi.'],
+                                                     ['Jacob','Peace be upon him — also known as "Israel"','His twelve sons became the twelve tribes known as the "Children of Israel" (Bani Isra\'il).'],
+                                                     {prophet:true}, [
+
+                                            n('yehuza', ['Yehuza','','Oğullarından, nesiller sonra Hz. Davud\'a ulaşan hat türer.'],
+                                                        ['Judah','','His line, many generations later, leads to King David.'], {}, [
+                                              n('davud', ['Dâvud','Aleyhisselâm','Hem peygamber hem kraldı; kendisine Zebur indirildi. Demiri işlemesi ve güzel sesiyle meşhurdur.'],
+                                                        ['David','Peace be upon him','Both a prophet and a king; the Psalms (Zabur) were revealed to him. Famed for working iron and for his beautiful voice.'],
+                                                        {prophet:true}, [
+                                                n('suleyman', ['Süleyman','Aleyhisselâm','Kuşların ve rüzgârın dilini anlar, cinlere hükmederdi; büyük bir krallık kurdu.'],
+                                                             ['Solomon','Peace be upon him','Understood the language of birds and commanded the wind and jinn; built a great kingdom.'],
+                                                             {prophet:true}, [
+                                                  n('danyal', ['Danyal','','Kur\'an\'da adı geçmez, ancak İslam tarihinde bilge/velî olarak anılır.'],
+                                                             ['Daniel','','Not named in the Qur\'an, but remembered in Islamic tradition as a wise figure.'], {}, [
+                                                    n('uzeyir', ['Üzeyir','','Bazı âlimlere göre peygamber, bazılarına göre âlim bir kuldu; görüş ayrılığı vardır.'],
+                                                               ['Ezra (Uzayr)','','Scholars differ on whether he was a prophet or simply a righteous, learned man.'], {}, [
+                                                      n('zekeriyya', ['Zekeriyya','Aleyhisselâm','Meryem\'in eniştesi/vasisi; ileri yaşta oğlu Yahya ile müjdelendi.'],
+                                                                    ['Zachariah','Peace be upon him','Guardian of Mary; given the good news of a son, John, in his old age.'],
+                                                                    {prophet:true}, [
+                                                        n('yahya', ['Yahya','Aleyhisselâm','İsa\'nın akrabası; Kur\'an\'da hikmeti çocuk yaşta verildiği belirtilir.'],
+                                                                   ['John (the Baptist)','Peace be upon him','Cousin of Jesus; the Qur\'an states he was given wisdom while still a child.'],
+                                                                   {prophet:true}),
+                                                        n('imran2', ['İmran','','Meryem\'in babası.'], ['Imran','','Father of Mary.'], {}, [
+                                                          n('meryem', ['Meryem','','İsa\'nın annesi; Kur\'an\'da adıyla anılan tek kadın ve bir sûreye adını verir.'],
+                                                                     ['Mary','','Mother of Jesus; the only woman named in the Qur\'an, after whom a chapter (Surah Maryam) is titled.'], {}, [
+                                                            n('isa', ['İsa','Aleyhisselâm — Mesih','Babasız, mucizevi şekilde doğdu. "Ülü\'l-azm" peygamberlerden; kendisine İncil indirildi. İslam inancına göre öldürülmedi, gökyüzüne yükseltildi.'],
+                                                                     ['Jesus','Peace be upon him — the Messiah','Born miraculously without a father. One of the five Ulu\'l-Azm prophets; the Gospel (Injil) was revealed to him. Islamic belief holds he was not killed but raised up to heaven.'],
+                                                                     {prophet:true, rasul:true})
+                                                          ])
+                                                        ])
+                                                      ], {dashed:false})
+                                                    ])
+                                                  ])
+                                                ])
+                                              ])
+                                            ]),
+
+                                            n('levi', ['Lâvi','','Musa ve Harun\'un soyunun ceddi.'], ['Levi','','Ancestor of Moses and Aaron.'], {}, [
+                                              n('kahis', ['Kahis - Yaşhur','',''], ['Kohath','',''], {}, [
+                                                n('imran', ['İmran','','Musa ve Harun\'un babası.'], ['Amram','','Father of Moses and Aaron.'], {}, [
+                                                  n('musa', ['Mûsâ','Aleyhisselâm — Kelîmullah','"Ülü\'l-azm" peygamberlerden; Allah kendisiyle doğrudan konuştu. Firavun\'a karşı İsrailoğullarını Mısır\'dan çıkardı; kendisine Tevrat indirildi.'],
+                                                            ['Moses','Peace be upon him — "Kalimullah" (the one God spoke to)','One of the five Ulu\'l-Azm prophets; God spoke to him directly. Led the Children of Israel out of Egypt from Pharaoh\'s oppression; the Torah was revealed to him.'],
+                                                            {prophet:true, rasul:true}),
+                                                  n('harun', ['Hârun','Aleyhisselâm','Mûsâ\'nın kardeşi ve yardımcı peygamberi; hitabet gücüyle bilinir.'],
+                                                            ['Aaron','Peace be upon him','Brother and supporting prophet of Moses; known for his eloquence.'],
+                                                            {prophet:true}, [
+                                                    n('ilyas', ['İlyas','Aleyhisselâm','Bâlebek halkını Ba\'l putuna tapmaktan men etmeye çalıştı.'],
+                                                              ['Elijah','Peace be upon him','Warned the people of Baalbek against worshipping the idol Ba\'al.'],
+                                                              {prophet:true}, [
+                                                      n('elyesa', ['Elyesa','Aleyhisselâm','İlyas\'ın yakını ve halefi kabul edilir.'],
+                                                                 ['Elisha','Peace be upon him','Regarded as a relative and successor of Elijah.'],
+                                                                 {prophet:true})
+                                                    ]),
+                                                    n('yunus', ['Yunus','Aleyhisselâm — Zünnûn','Ninova (Musul) halkına gönderildi; onları terk edince bir balık tarafından yutuldu, tövbesiyle kurtuldu.'],
+                                                              ['Jonah','Peace be upon him — "Dhu\'n-Nun"','Sent to the people of Nineveh; after abandoning them he was swallowed by a great fish and was saved through repentance.'],
+                                                              {prophet:true}, [], )
+                                                  ])
+                                                ])
+                                              ])
+                                            ]),
+
+                                            n('yusufdal', ["Yûsuf",'Aleyhisselâm','Kur\'an\'da "en güzel kıssa" olarak anılan sûrenin kahramanı; kardeşlerince kuyuya atıldı, Mısır\'da vezir oldu.'],
+                                                        ["Joseph",'Peace be upon him','Hero of the story the Qur\'an calls "the best of narrations"; thrown into a well by his brothers, later became a minister in Egypt.'],
+                                                        {prophet:true}, [
+                                              n('efraim', ['Efraim','',''], ['Ephraim','',''], {}, [
+                                                n('nunyusuf', ['Nun','',''], ['Nun','',''], {}, [
+                                                  n('yusa', ['Yûşâ','Aleyhisselâm — İbn Nûn','Mûsâ\'nın yardımcısı ve ondan sonra İsrailoğullarına önderlik eden peygamber.'],
+                                                           ['Joshua','Peace be upon him — son of Nun','Assistant to Moses, and the prophet who led the Children of Israel after him.'],
+                                                           {prophet:true})
+                                                ])
+                                              ])
+                                            ]),
+
+                                            n('bunyamin', ['Bünyamin','','Yâkup\'un en küçük oğlu.'], ['Benjamin','','Jacob\'s youngest son.'], {}, [
+                                              n('eyyub', ['Eyyûb','Aleyhisselâm','Sabrın sembolü; uzun süren hastalık ve kayıplarına rağmen Allah\'a şükrünü kesmedi, sonunda şifa ve bereketle mükâfatlandırıldı.'],
+                                                       ['Job','Peace be upon him','A symbol of patience; despite prolonged illness and loss he never ceased to be grateful to God, and was ultimately rewarded with healing and abundance.'],
+                                                       {prophet:true}, [
+                                                n('zulkifl', ['Zülkifl','Aleyhisselâm','Kimliği hakkında farklı rivayetler vardır; sabrı ve sözünde durmasıyla anılır.'],
+                                                            ['Dhu\'l-Kifl','Peace be upon him','His identity is debated among scholars; remembered for his patience and faithfulness to his word.'],
+                                                            {prophet:true})
+                                              ])
+                                            ]),
+
+                                            n('diger12', ['Diğer Oğulları','Şem\'un, Rubil, Zebulun, İssakar, Dan, Naftali, Gad, Aşer','Yâkup\'un geri kalan oğulları; İsrailoğulları\'nın on iki sıbtından (kabilesinden) diğerleri.'],
+                                                        ['Other Sons','Simeon, Reuben, Zebulun, Issachar, Dan, Naphtali, Gad, Asher','Jacob\'s remaining sons; the rest of the twelve tribes of the Children of Israel.'], {})
+                                          ])
+                                        ]),
+
+                                        n('lut', ['Lût','Aleyhisselâm','İbrahim\'in yeğeni. Sodom ve Gomore halkına gönderildi; kavmi ahlaksızlıkları sebebiyle helâk edildi, kendisi ve inanan ailesi kurtarıldı.'],
+                                                 ['Lot','Peace be upon him','Nephew of Abraham. Sent to the people of Sodom; his people were destroyed for their immorality while he and his believing family were saved.'],
+                                                 {prophet:true}, [], )
+                                      ]) /* ibrahim children close */
+                                    ]) /* azer */
+                                  ]) /* nahur */
+                                ]) /* saru */
+                              ]) /* rau */
+                            ]) /* falig */
+                          ]) /* abir */
+                        ]) /* salikh */
+                      ]),
+
+                      n('irem', ['İrem','','Sâm\'ın diğer oğlu; Âd ve Semûd kavimlerinin ceddi kabul edilir.'],
+                               ['Iram','','Another son of Shem; regarded as ancestor of the peoples of \'Ad and Thamud.'], {}, [
+                        n('ars', ["'Ars",'',''], ["'Ars",'',''], {}, [
+                          n('samud', ['Semûd (kavim ceddi)','','Semûd kavminin ceddi; Salih peygamberin kavmi.'],
+                                     ['Thamud (tribal ancestor)','','Ancestor of the Thamud people; the tribe of Prophet Salih.'], {}, [
+                            n('hadzir', ['Hadzir','',''], ['Hadhir','',''], {}, [
+                              n('ubayd', ['Ubayd','',''], ['Ubayd','',''], {}, [
+                                n('salih', ['Sâlih','Aleyhisselâm','Semûd kavmine gönderildi; kendilerine mucize olarak kayadan çıkan bir dişi deve verildi, deveyi kesince kavim helâk oldu.'],
+                                          ['Salih','Peace be upon him','Sent to the Thamud people; given a she-camel from the rock as a miracle. When they slaughtered it, the people were destroyed.'],
+                                          {prophet:true})
+                              ])
+                            ])
+                          ])
+                        ]),
+                        n('aush', ['Aush','',''], ['Aush','',''], {}, [
+                          n('ad', ['Âd (kavim ceddi)','','Âd kavminin ceddi; Hûd peygamberin kavmi.'],
+                                  ['\'Ad (tribal ancestor)','','Ancestor of the \'Ad people; the tribe of Prophet Hud.'], {}, [
+                            n('khulud', ['Hulud','',''], ['Khulud','',''], {}, [
+                              n('raya', ['Raya','',''], ['Raya','',''], {}, [
+                                n('abdullahhud', ['Abdullah','',''], ['Abdullah','',''], {}, [
+                                  n('hud', ['Hûd','Aleyhisselâm','Âd kavmine gönderildi; onları putperestlikten men etti, kavmi inatları yüzünden şiddetli bir rüzgârla helâk edildi.'],
+                                          ['Hud','Peace be upon him','Sent to the \'Ad people to turn them from idolatry; they were destroyed by a violent, roaring wind for their obstinacy.'],
+                                          {prophet:true}, [
+                                    n('haran', ['Haran','',''], ['Haran','',''], {}, [
+                                      n('lut2', ['Lût (soy devamı)','','Yukarıda İbrahim\'in yeğeni olarak da geçer — iki farklı rivayet hattı burada birleşir.'],
+                                               ['Lot (lineage continues)','','Also appears above as Abraham\'s nephew — two narrative lineages converge here.'], {dashed:true}, [
+                                        n('safyun', ['Safyun','',''], ['Safwan','',''], {}, [
+                                          n('suayb', ['Şuayb','Aleyhisselâm','Medyen halkına gönderildi; ölçü ve tartıda hile yapmamaları konusunda uyardı. Rivayete göre Mûsâ\'nın kayınpederidir.'],
+                                                    ['Shuaib','Peace be upon him','Sent to the people of Madyan, warning them against fraud in weights and measures. Tradition holds he was the father-in-law of Moses.'],
+                                                    {prophet:true, dashed:true})
+                                        ])
+                                      ])
+                                    ])
+                                  ])
+                                ])
+                              ])
+                            ])
+                          ])
+                        ])
+                      ])
+                    ]), /* sam children close */
+
+                    n('ham', ['Hâm','','Nuh\'un oğlu; gelenekte Afrika kavimlerinin (Kenanlılar, Kuşiler vb.) atası kabul edilir.'],
+                             ['Ham','','Son of Noah; traditionally regarded as ancestor of African peoples (Canaanites, Cushites, etc.).'], {}),
+
+                    n('yafes', ['Yâfes','','Nuh\'un oğlu; gelenekte Türklerin ve uzak doğu milletlerinin atası kabul edilir.'],
+                              ['Japheth','','Son of Noah; traditionally regarded as ancestor of the Turkic peoples and far-eastern nations.'], {})
+
+                  ]) /* nuh children close */
+                ]) /* lamek */
+              ]) /* mettuselah */
+            ]) /* idris children close */
+          ]) /* yard */
+        ]) /* mehlail */
+      ]) /* kinan */
+    ]) /* enus */
+  ]) /* şit children close */
+
+]); /* adem children close */
+
+const EXTRA = [
+  {id:'hizir', tr:['Hızır','','Kur\'an\'da Kehf sûresinde Mûsâ\'nın kıssasında adı geçmeden anlatılan hikmet sahibi kişi. Peygamber mi yoksa velî mi olduğu âlimler arasında tartışmalıdır.'],
+              en:['Khidr','','A figure of great wisdom described (though not named) in the story of Moses in Surah al-Kahf. Scholars debate whether he was a prophet or a saintly figure.'], prophet:false},
+  {id:'lokman', tr:['Lokman','','Kur\'an\'da kendisine "hikmet" verildiği belirtilen bilge kişi; oğluna öğütleri bir sûreye adını verir. Çoğunluk görüşe göre peygamber değil, hakîm/velî bir kuldu.'],
+               en:['Luqman','','A wise man to whom the Qur\'an says "wisdom" was given; his advice to his son gives its name to a chapter. Most scholars consider him a wise sage rather than a prophet.'], prophet:false},
+  {id:'zulkarneyn', tr:['Zülkarneyn','','Kur\'an\'da Kehf sûresinde anlatılan, doğuya ve batıya seyahat eden adil bir hükümdar; Yecüc-Mecüc\'e karşı set inşa ettirdi. Kimliği ve peygamber olup olmadığı tartışmalıdır.'],
+                   en:['Dhu\'l-Qarnayn','','A just ruler described in Surah al-Kahf who travelled to the east and west and built a barrier against Gog and Magog. His identity and prophetic status are debated.'], prophet:false}
+];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let lang = 'tr';
+let theme = null; // follow system by default
+let scale = 0.62, panX = 0, panY = 0;
+const collapsedIds = new Set(); // ids currently collapsed
+const nodeIndex = {}; // id -> data node
+
+function indexNodes(node){
+  nodeIndex[node.id] = node;
+  (node.children||[]).forEach(indexNodes);
+}
+indexNodes(DATA);
+EXTRA.forEach(e=>nodeIndex[e.id]=e);
+
+/* default collapse: keep the huge Adnan->Muhammad chain and Yakup's 12 sons open,
+   but collapse the very long single-child ancestor chains to reduce visual noise */
+const DEFAULT_COLLAPSED = ['ismail12','diger12'];
+DEFAULT_COLLAPSED.forEach(id=>collapsedIds.add(id));
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const canvas = document.getElementById('canvas');
+
+function label(node, field){
+  const d = node[lang] || node.tr;
+  return d[field] || '';
+}
+
+function buildNodeEl(node, isRoot){
+  const li = document.createElement('li');
+  const hasChildren = node.children && node.children.length;
+  if(hasChildren && collapsedIds.has(node.id)) li.classList.add('collapsed');
+  if(node.dashed) li.classList.add('dashedlink');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'nodewrap';
+
+  const box = document.createElement('div');
+  box.className = 'node' + (node.prophet ? ' prophet' : '') + (node.rasul ? ' rasul' : '');
+  box.dataset.id = node.id;
+
+  const nm = document.createElement('div');
+  nm.className = 'name';
+  nm.textContent = label(node,'name');
+  box.appendChild(nm);
+
+  const tt = label(node,'title');
+  if(tt){
+    const ti = document.createElement('div');
+    ti.className = 'title';
+    ti.textContent = tt;
+    box.appendChild(ti);
+  }
+
+  box.addEventListener('click', (e)=>{ e.stopPropagation(); openModal(node); });
+  wrap.appendChild(box);
+
+  if(hasChildren){
+    const cc = document.createElement('span');
+    cc.className = 'childcount';
+    cc.textContent = node.children.length;
+    wrap.appendChild(cc);
+
+    const tg = document.createElement('div');
+    tg.className = 'toggle';
+    tg.textContent = collapsedIds.has(node.id) ? '+' : '−';
+    tg.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if(collapsedIds.has(node.id)){ collapsedIds.delete(node.id); } else { collapsedIds.add(node.id); }
+      renderTree();
+    });
+    wrap.appendChild(tg);
+  }
+
+  li.appendChild(wrap);
+
+  if(hasChildren){
+    const ul = document.createElement('ul');
+    ul.className = 'tree';
+    node.children.forEach(ch=> ul.appendChild(buildNodeEl(ch,false)));
+    li.appendChild(ul);
+  }
+  return li;
+}
+
+function renderTree(){
+  canvas.innerHTML='';
+  const rootUl = document.createElement('ul');
+  rootUl.className = 'tree root';
+  rootUl.appendChild(buildNodeEl(DATA, true));
+  canvas.appendChild(rootUl);
+
+  // Extra figures row
+  const extraWrap = document.createElement('div');
+  extraWrap.style.marginTop = '70px';
+  extraWrap.style.display = 'flex';
+  extraWrap.style.flexDirection = 'column';
+  extraWrap.style.alignItems = 'center';
+  extraWrap.style.gap = '10px';
+
+  const h = document.createElement('div');
+  h.id = 'extraHeading';
+  h.style.fontSize = '12px';
+  h.style.fontWeight = '700';
+  h.style.color = 'var(--muted)';
+  h.style.textTransform='uppercase';
+  h.style.letterSpacing='.5px';
+  h.textContent = lang==='tr' ? "Kur'an'da Geçen Diğer Şahsiyetler" : "Other Figures Mentioned in the Qur'an";
+  extraWrap.appendChild(h);
+
+  const row = document.createElement('div');
+  row.style.display='flex'; row.style.gap='16px'; row.style.flexWrap='wrap'; row.style.justifyContent='center';
+  EXTRA.forEach(node=>{
+    const box = document.createElement('div');
+    box.className = 'node';
+    box.style.borderColor = '#4a9c8e';
+    box.dataset.id = node.id;
+    const nm = document.createElement('div'); nm.className='name'; nm.textContent = (lang==='tr'?node.tr[0]:node.en[0]);
+    box.appendChild(nm);
+    box.addEventListener('click', ()=> openModal({id:node.id, tr:{name:node.tr[0],title:node.tr[1],note:node.tr[2]}, en:{name:node.en[0],title:node.en[1],note:node.en[2]}, prophet:false}));
+    row.appendChild(box);
+  });
+  extraWrap.appendChild(row);
+  canvas.appendChild(extraWrap);
+
+  applyTransform();
+  drawConnectors();
+}
+
+/* ============================================================
+   CONNECTOR LINES (SVG overlay, computed from real box positions)
+   ============================================================ */
+const SVGNS = 'http://www.w3.org/2000/svg';
+let linesSvg = null;
+
+function localRect(el, canvasRect){
+  const r = el.getBoundingClientRect();
+  return {
+    left: (r.left - canvasRect.left) / scale,
+    top: (r.top - canvasRect.top) / scale,
+    width: r.width / scale,
+    height: r.height / scale
+  };
+}
+
+function drawConnectors(){
+  if(!linesSvg){
+    linesSvg = document.createElementNS(SVGNS, 'svg');
+    linesSvg.id = 'linesSvg';
+    canvas.insertBefore(linesSvg, canvas.firstChild);
+  } else if(linesSvg.parentNode !== canvas || canvas.firstChild !== linesSvg){
+    canvas.insertBefore(linesSvg, canvas.firstChild);
+  }
+  linesSvg.innerHTML = '';
+  linesSvg.setAttribute('width', canvas.offsetWidth);
+  linesSvg.setAttribute('height', canvas.offsetHeight);
+
+  const canvasRect = canvas.getBoundingClientRect();
+  const lis = canvas.querySelectorAll('ul.tree li');
+
+  lis.forEach(li=>{
+    if(li.classList.contains('collapsed')) return;
+    const parentBox = li.querySelector(':scope > .nodewrap > .node');
+    const childUl = li.querySelector(':scope > ul.tree');
+    if(!parentBox || !childUl) return;
+
+    const pRect = localRect(parentBox, canvasRect);
+    const pX = pRect.left + pRect.width/2;
+    const pY = pRect.top + pRect.height;
+
+    const childLis = Array.from(childUl.children).filter(c=>c.tagName==='LI');
+    if(!childLis.length) return;
+    const midY = pY + 17;
+
+    childLis.forEach(childLi=>{
+      const childBox = childLi.querySelector(':scope > .nodewrap > .node');
+      if(!childBox) return;
+      const cRect = localRect(childBox, canvasRect);
+      const cX = cRect.left + cRect.width/2;
+      const cY = cRect.top;
+      const dashed = childLi.classList.contains('dashedlink');
+
+      const path = document.createElementNS(SVGNS, 'path');
+      const d = `M ${pX} ${pY} L ${pX} ${midY} L ${cX} ${midY} L ${cX} ${cY}`;
+      path.setAttribute('d', d);
+      path.setAttribute('class', 'connector' + (dashed ? ' dashed' : ''));
+      linesSvg.appendChild(path);
+    });
+  });
+}
+
+/* ============================================================
+   PAN / ZOOM
+   ============================================================ */
+const stage = document.getElementById('stage');
+
+function applyTransform(){
+  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+}
+
+function centerInitial(){
+  fitToScreen();
+}
+
+function fitToScreen(){
+  requestAnimationFrame(()=>{
+    const prevTransform = canvas.style.transform;
+    canvas.style.transform = 'translate(0px,0px) scale(1)';
+    const rect = canvas.getBoundingClientRect();
+    const sRect = stage.getBoundingClientRect();
+    const scaleX = sRect.width / rect.width;
+    const scaleY = sRect.height / rect.height;
+    scale = Math.max(0.06, Math.min(scaleX, scaleY, 1) * 0.95);
+    panX = (sRect.width - rect.width * scale) / 2;
+    panY = 16;
+    applyTransform();
+  });
+}
+
+/* Pointer capture is only engaged once real dragging is detected (movement
+   past a small threshold). If we captured immediately on pointerdown, the
+   browser retargets the resulting click to #stage instead of the node box
+   under the cursor, silently breaking every node's click handler. */
+const DRAG_THRESHOLD = 4;
+let isPanning=false, isDragCandidate=false, activePointerId=null;
+let startX=0, startY=0, startPanX=0, startPanY=0;
+
+stage.addEventListener('pointerdown', (e)=>{
+  isDragCandidate = true;
+  isPanning = false;
+  activePointerId = e.pointerId;
+  startX=e.clientX; startY=e.clientY; startPanX=panX; startPanY=panY;
+});
+stage.addEventListener('pointermove', (e)=>{
+  if(!isDragCandidate) return;
+  const dx = e.clientX-startX, dy = e.clientY-startY;
+  if(!isPanning){
+    if(Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+    isPanning = true;
+    stage.classList.add('grabbing');
+    try{ stage.setPointerCapture(activePointerId); }catch(err){}
+  }
+  e.preventDefault();
+  panX = startPanX + dx;
+  panY = startPanY + dy;
+  applyTransform();
+});
+stage.addEventListener('dragstart', (e)=>{ e.preventDefault(); });
+stage.addEventListener('selectstart', (e)=>{ e.preventDefault(); });
+['pointerup','pointercancel','pointerleave'].forEach(ev=>{
+  stage.addEventListener(ev, ()=>{ isDragCandidate=false; isPanning=false; stage.classList.remove('grabbing'); });
+});
+
+stage.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  const rect = stage.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const delta = e.deltaY < 0 ? 1.1 : 0.9;
+  zoomAt(mx, my, delta);
+}, {passive:false});
+
+function zoomAt(mx, my, factor){
+  const newScale = Math.min(2.2, Math.max(0.12, scale*factor));
+  const ratio = newScale/scale;
+  panX = mx - (mx-panX)*ratio;
+  panY = my - (my-panY)*ratio;
+  scale = newScale;
+  applyTransform();
+}
+
+document.getElementById('zoomIn').addEventListener('click', ()=>{
+  const r = stage.getBoundingClientRect(); zoomAt(r.width/2, r.height/2, 1.2);
+});
+document.getElementById('zoomOut').addEventListener('click', ()=>{
+  const r = stage.getBoundingClientRect(); zoomAt(r.width/2, r.height/2, 0.83);
+});
+document.getElementById('zoomReset').addEventListener('click', ()=>{
+  fitToScreen();
+});
+
+// pinch zoom (basic two-touch)
+let pinchStartDist=null, pinchStartScale=1;
+stage.addEventListener('touchstart', (e)=>{
+  if(e.touches.length===2){
+    pinchStartDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    pinchStartScale = scale;
+  }
+}, {passive:true});
+stage.addEventListener('touchmove', (e)=>{
+  if(e.touches.length===2 && pinchStartDist){
+    e.preventDefault();
+    const dist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    const factor = dist/pinchStartDist;
+    scale = Math.min(2.2, Math.max(0.12, pinchStartScale*factor));
+    applyTransform();
+  }
+}, {passive:false});
+stage.addEventListener('touchend', (e)=>{ if(e.touches.length<2) pinchStartDist=null; });
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
+
+function allNodesFlat(){
+  const list = [];
+  (function walk(nd){ list.push(nd); (nd.children||[]).forEach(walk); })(DATA);
+  EXTRA.forEach(e=>list.push({id:e.id, tr:{name:e.tr[0],title:e.tr[1]}, en:{name:e.en[0],title:e.en[1]}}));
+  return list;
+}
+const FLAT = allNodesFlat();
+
+searchInput.addEventListener('input', ()=>{
+  const q = searchInput.value.trim().toLocaleLowerCase('tr');
+  searchResults.innerHTML='';
+  if(!q){ searchResults.style.display='none'; return; }
+  const matches = FLAT.filter(n=>{
+    const nm = ((lang==='tr'?n.tr.name:n.en.name)||'').toLocaleLowerCase('tr');
+    const nm2 = (n.tr.name||'').toLocaleLowerCase('tr');
+    const nm3 = (n.en.name||'').toLocaleLowerCase('tr');
+    return nm.includes(q) || nm2.includes(q) || nm3.includes(q);
+  }).slice(0,20);
+  if(!matches.length){
+    const d = document.createElement('div'); d.className='none';
+    d.textContent = lang==='tr' ? 'Sonuç bulunamadı' : 'No results';
+    searchResults.appendChild(d);
+  } else {
+    matches.forEach(m=>{
+      const d = document.createElement('div');
+      d.textContent = (lang==='tr'?m.tr.name:m.en.name) + (m.tr.title? ' — '+(lang==='tr'?m.tr.title:m.en.title):'');
+      d.addEventListener('click', ()=>{ jumpTo(m.id); searchResults.style.display='none'; searchInput.value=''; });
+      searchResults.appendChild(d);
+    });
+  }
+  searchResults.style.display='block';
+});
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.searchbox')) searchResults.style.display='none';
+});
+
+function ensureVisible(id){
+  // expand all ancestor collapsed nodes
+  function findPath(node, path){
+    path = path.concat([node.id]);
+    if(node.id===id) return path;
+    for(const ch of (node.children||[])){
+      const r = findPath(ch, path);
+      if(r) return r;
+    }
+    return null;
+  }
+  const path = findPath(DATA, []);
+  if(path){ path.forEach(pid=> collapsedIds.delete(pid)); }
+}
+
+function jumpTo(id){
+  ensureVisible(id);
+  renderTree();
+  requestAnimationFrame(()=>{
+    const el = canvas.querySelector(`.node[data-id="${CSS.escape(id)}"]`);
+    if(!el) return;
+    const stageRect = stage.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    // convert current el position back to canvas coords accounting for transform
+    const canvasRect = canvas.getBoundingClientRect();
+    const cx = (elRect.left - canvasRect.left)/scale;
+    const cy = (elRect.top - canvasRect.top)/scale;
+    panX = stageRect.width/2 - cx*scale - (elRect.width/2);
+    panY = stageRect.height/2 - cy*scale - (elRect.height/2);
+    applyTransform();
+    el.classList.add('highlight');
+    setTimeout(()=> el.classList.remove('highlight'), 2800);
+  });
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+const overlay = document.getElementById('overlay');
+function openModal(node){
+  const d = node[lang] || node.tr;
+  document.getElementById('modalName').textContent = d.name;
+  document.getElementById('modalTitleTxt').textContent = d.title || '';
+  const body = document.getElementById('modalBody');
+  body.innerHTML='';
+  if(node.prophet){
+    const b = document.createElement('span'); b.className='badge';
+    b.textContent = lang==='tr' ? "Kur'an'da adı geçen peygamber" : 'Prophet named in the Qur\'an';
+    body.appendChild(b);
+    body.appendChild(document.createElement('br'));
+  }
+  const p = document.createElement('div');
+  p.textContent = d.note || (lang==='tr' ? 'Bu kişi hakkında ek not bulunmuyor.' : 'No additional note available.');
+  body.appendChild(p);
+  overlay.style.display='flex';
+}
+document.getElementById('modalClose').addEventListener('click', ()=> overlay.style.display='none');
+overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.style.display='none'; });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') overlay.style.display='none'; });
+
+/* ============================================================
+   EXPAND / COLLAPSE ALL
+   ============================================================ */
+document.getElementById('expandAllBtn').addEventListener('click', ()=>{
+  collapsedIds.clear(); renderTree(); fitToScreen();
+});
+document.getElementById('collapseAllBtn').addEventListener('click', ()=>{
+  (function walk(nd){ if(nd.children && nd.children.length){ collapsedIds.add(nd.id); nd.children.forEach(walk); } })(DATA);
+  renderTree(); fitToScreen();
+});
+
+/* ============================================================
+   LANGUAGE
+   ============================================================ */
+const I18N = {
+  tr:{ title:'Şecere-i Muhammedî', sub:'Peygamberler Soy Ağacı — İnteraktif',
+       search:'İsim ara…', expand:'Tümünü Aç', collapse:'Tümünü Kapat',
+       legendTitle:'Gösterge', lg1:"Peygamber (Kur'an'da adı geçen)", lg2:'Ata / Aile üyesi',
+       lg3:'Doğrudan soy', lg4:'Nesil atlama / dolaylı bağ', hide:'Gizle',
+       hint:'🖱️ Sürükle • Tekerlek: yakınlaştır • Kutuya tıkla: detay • ⊕/⊖: dalları aç/kapat' },
+  en:{ title:'Genealogy of Muhammad ﷺ', sub:'Family Tree of the Prophets — Interactive',
+       search:'Search names…', expand:'Expand All', collapse:'Collapse All',
+       legendTitle:'Legend', lg1:'Prophet (named in the Qur\'an)', lg2:'Ancestor / family member',
+       lg3:'Direct descent', lg4:'Skip-generation / indirect link', hide:'Hide',
+       hint:'🖱️ Drag • Wheel: zoom • Click a box: details • ⊕/⊖: expand/collapse branch' }
+};
+
+function applyLang(){
+  const t = I18N[lang];
+  document.documentElement.lang = lang;
+  document.getElementById('mainTitle').firstChild.textContent = t.title + ' ';
+  document.getElementById('subTitle').textContent = t.sub;
+  searchInput.placeholder = t.search;
+  document.querySelector('#expandAllBtn span').textContent = t.expand;
+  document.querySelector('#collapseAllBtn span').textContent = t.collapse;
+  document.getElementById('legendTitle').textContent = t.legendTitle;
+  document.getElementById('lg1').textContent = t.lg1;
+  document.getElementById('lg2').textContent = t.lg2;
+  document.getElementById('lg3').textContent = t.lg3;
+  document.getElementById('lg4').textContent = t.lg4;
+  document.getElementById('legendHide').textContent = t.hide;
+  document.getElementById('hint').textContent = t.hint;
+  renderTree();
+}
+
+document.getElementById('langSel').addEventListener('change', (e)=>{
+  lang = e.target.value; applyLang();
+});
+
+/* ============================================================
+   THEME
+   ============================================================ */
+document.getElementById('themeBtn').addEventListener('click', ()=>{
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme');
+  const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const effectiveDark = current ? current==='dark' : sysDark;
+  root.setAttribute('data-theme', effectiveDark ? 'light' : 'dark');
+});
+
+/* legend hide */
+document.getElementById('legendHide').addEventListener('click', ()=>{
+  document.getElementById('legend').style.display='none';
+});
+
+/* hint auto-fade */
+setTimeout(()=>{ const h=document.getElementById('hint'); if(h) h.style.opacity='0'; }, 6000);
+
+/* ============================================================
+   INIT
+   ============================================================ */
+renderTree();
+centerInitial();
+</script>
+</body>
+</html>
