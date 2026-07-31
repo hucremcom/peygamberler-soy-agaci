@@ -605,7 +605,7 @@ function buildNodeEl(node, isRoot){
     tg.addEventListener('click', (e)=>{
       e.stopPropagation();
       if(collapsedIds.has(node.id)){ collapsedIds.delete(node.id); } else { collapsedIds.add(node.id); }
-      renderTree();
+      renderTreeKeepingAnchor(node.id);
     });
     wrap.appendChild(tg);
   }
@@ -663,6 +663,25 @@ function renderTree(){
 
   applyTransform();
   drawConnectors();
+}
+
+/* Collapsing/expanding a branch changes the flex layout of the whole tree
+   (widths shift as subtrees appear/disappear), but panX/panY don't know
+   that — so without this, the node you just tapped can end up somewhere
+   completely different on screen, reading as "the zoom got reset". This
+   re-renders, then nudges pan by exactly the on-screen drift of `anchorId`
+   so that node stays glued under your finger/cursor. */
+function renderTreeKeepingAnchor(anchorId){
+  const before = canvas.querySelector('.node[data-id="'+anchorId+'"]');
+  const beforeRect = before ? before.getBoundingClientRect() : null;
+  renderTree();
+  if(!beforeRect) return;
+  const after = canvas.querySelector('.node[data-id="'+anchorId+'"]');
+  if(!after) return;
+  const afterRect = after.getBoundingClientRect();
+  panX += beforeRect.left - afterRect.left;
+  panY += beforeRect.top - afterRect.top;
+  applyTransform();
 }
 
 /* ============================================================
