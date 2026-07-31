@@ -26,7 +26,7 @@
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-    overflow:hidden; overscroll-behavior:none;}
+    overflow:hidden; overscroll-behavior:none; touch-action:none;}
 
   header{
     position:relative; z-index:20;
@@ -816,6 +816,18 @@ document.getElementById('zoomOut').addEventListener('click', ()=>{
 });
 document.getElementById('zoomReset').addEventListener('click', ()=>{
   fitToScreen();
+});
+
+/* iOS Safari ignores the viewport meta's user-scalable=no/maximum-scale=1
+   (dropped for accessibility since iOS 10) and still performs its own native
+   whole-page pinch-zoom via WebKit-only 'gesture*' events — independent of
+   touch-action and independent of our own touch-based pinch handler below.
+   Left unblocked, BOTH zoom systems fire from the same pinch, compounding
+   into exactly the "content drifts off to one side" symptom. Gesture events
+   are non-standard (no preventDefault effect outside WebKit) so this is a
+   safe no-op on other browsers. */
+['gesturestart','gesturechange','gestureend'].forEach(ev=>{
+  document.addEventListener(ev, (e)=>{ e.preventDefault(); }, {passive:false});
 });
 
 // pinch zoom (two-touch) — zooms around the midpoint between the two fingers,
