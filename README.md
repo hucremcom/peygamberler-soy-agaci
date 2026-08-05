@@ -26,3 +26,21 @@
 ## Not
 
 Bazı çok eski ata isimlerinin sıralaması (ör. Sam soyundaki ataların tam sırası) kaynaklara göre hafif farklılık gösterebilir; ana peygamber hattı ve ilişkiler kesindir. Detaylar için her kutunun bilgi kartına bakınız.
+
+## Ekran Görüntüleri
+
+Uygulamanın genel görünümü ve interaktif kullanımı:
+
+![Ekran Görüntüsü 1](ss1.png)
+
+![Ekran Görüntüsü 2](ss2.png)
+
+---
+
+## Screenshots
+
+Overall view of the application and its interactive usage:
+
+![Screenshot 1](ss1.png)
+
+![Screenshot 2](ss2.png)
