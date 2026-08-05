@@ -2,7 +2,7 @@
 
 Âdem'den Hz. Muhammed'e (s.a.v.) kadar peygamberler soy ağacının interaktif, tek dosyalık web uygulaması. "Family Tree of the Prophets" (İngilizce şema) ve "Şecere-i Muhammedî" (Türkçe poster) kaynaklarının sentezlenmesiyle hazırlandı.
 
-**Canlı site:** GitHub Pages etkinleştirildikten sonra bu reponun Pages adresinden erişilebilir olacak.
+**Canlı site:** https://hucremcom.github.io/peygamberler-soy-agaci/
 
 ## Özellikler
 
